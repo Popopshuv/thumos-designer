@@ -23,14 +23,14 @@ export function TextController() {
       label: "Header Y",
     },
     headerPositionZ: {
-      value: 0,
+      value: -3,
       min: -10,
       max: 10,
       step: 0.1,
       label: "Header Z",
     },
     headerSize: {
-      value: 2,
+      value: 0.5,
       min: 0.1,
       max: 5,
       step: 0.1,
@@ -40,7 +40,7 @@ export function TextController() {
     headerMaxWidth: {
       value: 10,
       min: 0,
-      max: 20,
+      max: 60,
       step: 0.1,
       label: "Header Max Width",
     },
@@ -71,14 +71,14 @@ export function TextController() {
       label: "Description Y",
     },
     descriptionPositionZ: {
-      value: 0,
+      value: -4,
       min: -10,
       max: 10,
       step: 0.1,
       label: "Description Z",
     },
     descriptionSize: {
-      value: 1,
+      value: 0.5,
       min: 0.1,
       max: 5,
       step: 0.1,
@@ -161,7 +161,6 @@ function TextContent() {
           ]}
           transform
           occlude
-          scale={textControls.headerSize / 12}
           style={{
             pointerEvents: "none",
           }}
@@ -170,12 +169,10 @@ function TextContent() {
             className="dynamic-text-heading"
             style={{
               color: textControls.headerColor,
-              maxWidth: `${
-                textControls.headerMaxWidth *
-                100 *
-                (12 / textControls.headerSize)
-              }px`,
+              fontSize: `${textControls.headerSize * 10}rem`,
+              maxWidth: `${textControls.headerMaxWidth * 100}px`,
               lineHeight: textControls.headerLineHeight,
+              display: "block",
             }}
           >
             {textControls.headerText}
@@ -192,7 +189,6 @@ function TextContent() {
           ]}
           transform
           occlude
-          scale={textControls.descriptionSize / 6}
           style={{
             pointerEvents: "none",
           }}
@@ -201,11 +197,8 @@ function TextContent() {
             className="dynamic-text-description"
             style={{
               color: textControls.descriptionColor,
-              maxWidth: `${
-                textControls.descriptionMaxWidth *
-                100 *
-                (6 / textControls.descriptionSize)
-              }px`,
+              fontSize: `${textControls.descriptionSize * 7.5}rem`,
+              maxWidth: `${textControls.descriptionMaxWidth * 100}px`,
               lineHeight: textControls.descriptionLineHeight,
             }}
           >
