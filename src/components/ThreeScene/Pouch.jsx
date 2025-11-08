@@ -1,8 +1,9 @@
 import { useGLTF, useTexture } from "@react-three/drei";
-import { useRef, useMemo, useState, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useRef, useMemo, useState, useEffect, useCallback } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useControls } from "leva";
 import * as THREE from "three";
+import { dispatchLevaUpdate } from "./levaUpdater";
 
 const SCALE_NORMAL = 0.03;
 
@@ -103,6 +104,50 @@ export function PouchController() {
     },
   });
 
+  // Listen for programmatic updates from drag handlers
+  useEffect(() => {
+    const handleLevaUpdate = (e) => {
+      if (e.detail.folder === "Pouch Settings" && e.detail.updates) {
+        const levaRoot =
+          document.querySelector("[data-leva-root]") ||
+          document.querySelector('[class*="leva"]') ||
+          document.body;
+
+        if (!levaRoot) return;
+
+        Object.entries(e.detail.updates).forEach(([key, value]) => {
+          const allInputs = levaRoot.querySelectorAll('input[type="number"]');
+          for (const input of allInputs) {
+            const control = input.closest('[class*="control"]');
+            const label = control?.querySelector('[class*="label"]');
+            if (label) {
+              const labelText = label.textContent
+                ?.toLowerCase()
+                .replace(/\s+/g, "");
+              const keyText = key
+                .toLowerCase()
+                .replace(/([A-Z])/g, " $1")
+                .trim()
+                .replace(/\s+/g, "");
+              if (labelText.includes(keyText) || labelText === keyText) {
+                input.value = value;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+                break;
+              }
+            }
+          }
+        });
+      }
+    };
+
+    window.addEventListener("levaControlUpdate", handleLevaUpdate);
+
+    return () => {
+      window.removeEventListener("levaControlUpdate", handleLevaUpdate);
+    };
+  }, []);
+
   // Store controls in a way that Pouch can access
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -123,6 +168,8 @@ export function PouchController() {
 }
 
 function Pouch({ instanceIndex = null, basePosition = null }) {
+  const { camera, raycaster, gl } = useThree();
+  const pointerRef = useRef(new THREE.Vector2());
   // Use main GLTF file for design purposes
   const { nodes, materials } = useGLTF("/3d/pouch2/scene.gltf");
   const pouchRef = useRef();
@@ -143,6 +190,10 @@ function Pouch({ instanceIndex = null, basePosition = null }) {
     pulsingSpeed: 1,
     pulsingAmount: 0.2,
   });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
+  const offsetRef = useRef(new THREE.Vector3());
+  const dragStartPositionRef = useRef(new THREE.Vector3());
 
   // Manually load textures from files
   const textures = useTexture({
@@ -168,6 +219,91 @@ function Pouch({ instanceIndex = null, basePosition = null }) {
       window.removeEventListener("pouchAnimationUpdate", handleAnimationUpdate);
     };
   }, []);
+
+  // Global pointer move/up handlers for dragging
+  useEffect(() => {
+    const handleGlobalPointerMove = (event) => {
+      if (!isDragging || instanceIndex !== null) return; // Don't drag instanced pouches
+
+      const rect = gl.domElement.getBoundingClientRect();
+      pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerRef.current.y =
+        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointerRef.current, camera);
+      const intersection = new THREE.Vector3();
+      raycaster.ray.intersectPlane(dragPlaneRef.current, intersection);
+      intersection.add(offsetRef.current);
+
+      const newX = intersection.x;
+      const newY = intersection.y;
+      const newZ = dragStartPositionRef.current.z;
+
+      setPouchControls((prev) => ({
+        ...prev,
+        pouchPositionX: newX,
+        pouchPositionY: newY,
+      }));
+      dispatchLevaUpdate("Pouch Settings", {
+        pouchPositionX: newX,
+        pouchPositionY: newY,
+      });
+    };
+
+    const handleGlobalPointerUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener("pointermove", handleGlobalPointerMove);
+      window.addEventListener("pointerup", handleGlobalPointerUp);
+    }
+
+    return () => {
+      window.removeEventListener("pointermove", handleGlobalPointerMove);
+      window.removeEventListener("pointerup", handleGlobalPointerUp);
+    };
+  }, [isDragging, camera, raycaster, gl, instanceIndex]);
+
+  const handlePointerDown = useCallback(
+    (event) => {
+      if (instanceIndex !== null) return; // Don't allow dragging instanced pouches
+      event.stopPropagation();
+      setIsDragging(true);
+
+      const rect = gl.domElement.getBoundingClientRect();
+      pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerRef.current.y =
+        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Get current position (accounting for base position if instanced)
+      const currentX = basePosition
+        ? basePosition[0] + pouchControls.pouchPositionX
+        : pouchControls.pouchPositionX;
+      const currentY = basePosition
+        ? basePosition[1] + pouchControls.pouchPositionY
+        : pouchControls.pouchPositionY;
+      const currentZ = basePosition
+        ? basePosition[2] + pouchControls.pouchPositionZ
+        : pouchControls.pouchPositionZ;
+
+      dragStartPositionRef.current.set(currentX, currentY, currentZ);
+
+      dragPlaneRef.current.setFromNormalAndCoplanarPoint(
+        new THREE.Vector3(0, 0, 1),
+        dragStartPositionRef.current
+      );
+
+      raycaster.setFromCamera(pointerRef.current, camera);
+      const intersection = new THREE.Vector3();
+      raycaster.ray.intersectPlane(dragPlaneRef.current, intersection);
+
+      offsetRef.current.subVectors(dragStartPositionRef.current, intersection);
+
+      event.target.setPointerCapture(event.pointerId);
+    },
+    [camera, raycaster, gl, basePosition, pouchControls, instanceIndex]
+  );
 
   // Check if everything is loaded
   useEffect(() => {
@@ -290,7 +426,12 @@ function Pouch({ instanceIndex = null, basePosition = null }) {
   });
 
   return (
-    <group ref={pouchRef} renderOrder={10} dispose={null}>
+    <group
+      ref={pouchRef}
+      renderOrder={10}
+      dispose={null}
+      onPointerDown={handlePointerDown}
+    >
       <mesh
         geometry={nodes.Box001__0.geometry}
         material={material}

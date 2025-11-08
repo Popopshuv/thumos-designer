@@ -9,7 +9,9 @@ import {
   useRef,
   useCallback,
 } from "react";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { dispatchLevaUpdate } from "./levaUpdater";
 
 // Controller component that's always mounted to register controls
 export function ImagePlaneController() {
@@ -64,6 +66,44 @@ export function ImagePlaneController() {
     },
     imageVisible: { value: true, label: "Show Image" },
   });
+
+  // Listen for programmatic updates from drag handlers
+  useEffect(() => {
+    const handleLevaUpdate = (e) => {
+      if (e.detail.folder === "Image Plane Settings" && e.detail.updates) {
+        const levaRoot =
+          document.querySelector("[data-leva-root]") ||
+          document.querySelector('[class*="leva"]') ||
+          document.body;
+
+        if (!levaRoot) return;
+
+        Object.entries(e.detail.updates).forEach(([key, value]) => {
+          const allInputs = levaRoot.querySelectorAll('input[type="number"]');
+          for (const input of allInputs) {
+            const control = input.closest('[class*="control"]');
+            const label = control?.querySelector('[class*="label"]');
+            if (label) {
+              const labelText = label.textContent?.toLowerCase().replace(/\s+/g, "");
+              const keyText = key.toLowerCase().replace(/([A-Z])/g, " $1").trim().replace(/\s+/g, "");
+              if (labelText.includes(keyText) || labelText === keyText) {
+                input.value = value;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+                break;
+              }
+            }
+          }
+        });
+      }
+    };
+
+    window.addEventListener("levaControlUpdate", handleLevaUpdate);
+
+    return () => {
+      window.removeEventListener("levaControlUpdate", handleLevaUpdate);
+    };
+  }, []);
 
   // Store controls in a way that ImagePlaneContent can access
   useEffect(() => {
@@ -186,6 +226,8 @@ export function ImagePlaneController() {
 }
 
 function ImagePlaneContent() {
+  const { camera, raycaster, gl } = useThree();
+  const pointerRef = useRef(new THREE.Vector2());
   const [imageControls, setImageControls] = useState({
     imagePositionX: 0,
     imagePositionY: 0,
@@ -199,6 +241,10 @@ function ImagePlaneContent() {
   const textureRef = useRef(null);
   const loaderRef = useRef(new THREE.TextureLoader());
   const imageUrlRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
+  const offsetRef = useRef(new THREE.Vector3());
+  const meshRef = useRef();
 
   // Load image and calculate aspect ratio, and load texture
   useEffect(() => {
@@ -276,6 +322,75 @@ function ImagePlaneContent() {
     };
   }, []);
 
+  // Global pointer move/up handlers for dragging
+  useEffect(() => {
+    const handleGlobalPointerMove = (event) => {
+      if (!isDragging) return;
+
+      const rect = gl.domElement.getBoundingClientRect();
+      pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointerRef.current, camera);
+      const intersection = new THREE.Vector3();
+      raycaster.ray.intersectPlane(dragPlaneRef.current, intersection);
+      intersection.add(offsetRef.current);
+
+      const newX = intersection.x;
+      const newY = intersection.y;
+      const newZ = imageControls.imagePositionZ;
+
+      setImageControls(prev => ({ ...prev, imagePositionX: newX, imagePositionY: newY }));
+      dispatchLevaUpdate("Image Plane Settings", {
+        imagePositionX: newX,
+        imagePositionY: newY,
+      });
+    };
+
+    const handleGlobalPointerUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener("pointermove", handleGlobalPointerMove);
+      window.addEventListener("pointerup", handleGlobalPointerUp);
+    }
+
+    return () => {
+      window.removeEventListener("pointermove", handleGlobalPointerMove);
+      window.removeEventListener("pointerup", handleGlobalPointerUp);
+    };
+  }, [isDragging, camera, raycaster, gl, imageControls.imagePositionZ]);
+
+  const handlePointerDown = useCallback((event) => {
+    event.stopPropagation();
+    setIsDragging(true);
+
+    const rect = gl.domElement.getBoundingClientRect();
+    pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const position = [
+      imageControls.imagePositionX,
+      imageControls.imagePositionY,
+      imageControls.imagePositionZ,
+    ];
+
+    dragPlaneRef.current.setFromNormalAndCoplanarPoint(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(...position)
+    );
+
+    raycaster.setFromCamera(pointerRef.current, camera);
+    const intersection = new THREE.Vector3();
+    raycaster.ray.intersectPlane(dragPlaneRef.current, intersection);
+
+    const currentPos = new THREE.Vector3(...position);
+    offsetRef.current.subVectors(currentPos, intersection);
+
+    event.target.setPointerCapture(event.pointerId);
+  }, [camera, raycaster, gl, imageControls]);
+
   // Create plane geometry with correct aspect ratio
   const planeGeometry = useMemo(() => {
     // Base size, will be scaled by aspect ratio
@@ -296,6 +411,7 @@ function ImagePlaneContent() {
 
   return (
     <mesh
+      ref={meshRef}
       position={[
         imageControls.imagePositionX,
         imageControls.imagePositionY,
@@ -304,6 +420,7 @@ function ImagePlaneContent() {
       scale={imageControls.imageScale}
       geometry={planeGeometry}
       renderOrder={10}
+      onPointerDown={handlePointerDown}
     >
       <meshStandardMaterial map={textureRef.current} transparent opacity={1} />
     </mesh>
