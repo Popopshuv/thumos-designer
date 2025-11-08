@@ -139,7 +139,6 @@ function TextContent() {
 
   useEffect(() => {
     const handleControlsUpdate = (e) => {
-      console.log("Text controls updated:", e.detail);
       setTextControls(e.detail);
     };
 
@@ -149,8 +148,6 @@ function TextContent() {
       window.removeEventListener("textControlsUpdate", handleControlsUpdate);
     };
   }, []);
-
-  console.log("Rendering text with controls:", textControls);
 
   return (
     <group renderOrder={20}>
@@ -162,9 +159,9 @@ function TextContent() {
             textControls.headerPositionY,
             textControls.headerPositionZ,
           ]}
-          center
           transform
           occlude
+          scale={textControls.headerSize / 12}
           style={{
             pointerEvents: "none",
           }}
@@ -173,7 +170,12 @@ function TextContent() {
             className="dynamic-text-heading"
             style={{
               color: textControls.headerColor,
-              maxWidth: `${textControls.headerMaxWidth * 100}px`,
+              maxWidth: `${
+                textControls.headerMaxWidth *
+                100 *
+                (12 / textControls.headerSize)
+              }px`,
+              lineHeight: textControls.headerLineHeight,
             }}
           >
             {textControls.headerText}
@@ -188,9 +190,9 @@ function TextContent() {
             textControls.descriptionPositionY,
             textControls.descriptionPositionZ,
           ]}
-          center
           transform
           occlude
+          scale={textControls.descriptionSize / 6}
           style={{
             pointerEvents: "none",
           }}
@@ -199,7 +201,12 @@ function TextContent() {
             className="dynamic-text-description"
             style={{
               color: textControls.descriptionColor,
-              maxWidth: `${textControls.descriptionMaxWidth * 100}px`,
+              maxWidth: `${
+                textControls.descriptionMaxWidth *
+                100 *
+                (6 / textControls.descriptionSize)
+              }px`,
+              lineHeight: textControls.descriptionLineHeight,
             }}
           >
             {textControls.descriptionText}

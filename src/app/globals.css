@@ -35,18 +35,32 @@ body {
 
 .dynamic-text-heading {
   font-family: "Sohne Buch", sans-serif;
-  font-size: 3.33rem;
+  font-size: 20rem; /* 6x larger for ultra-crisp rendering */
   line-height: 0.9;
   letter-spacing: -0.03em;
   margin: 0;
-  text-align: center;
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-smooth: always;
+  transform-origin: left center;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .dynamic-text-description {
   font-family: "Sohne Buch", sans-serif;
-  font-size: 1.25rem;
+  font-size: 7.5rem; /* 6x larger for ultra-crisp rendering */
   line-height: 1.25;
   letter-spacing: -0.03em;
   margin: 0;
-  text-align: center;
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-smooth: always;
+  transform-origin: left center;
+  will-change: transform;
+  backface-visibility: hidden;
 }
