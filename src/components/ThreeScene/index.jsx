@@ -407,17 +407,14 @@ function ThreeScene() {
         </button>
         <button
           onClick={handleExportVideo}
-          disabled={isRecording}
-          className="px-4 py-2 bg-white text-black rounded-md shadow-lg hover:bg-gray-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`px-4 py-2 rounded-md shadow-lg transition-colors font-medium ${
+            isRecording
+              ? "bg-red-500 text-white hover:bg-red-600"
+              : "bg-white text-black hover:bg-gray-100"
+          }`}
         >
-          🎥 Video
+          {isRecording ? "⏹️ Stop Recording" : "🎥 Start Recording"}
         </button>
-        {isRecording && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md shadow-lg animate-pulse">
-            <div className="w-2 h-2 bg-white rounded-full"></div>
-            <span className="font-medium">Recording...</span>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ export function CanvasExporter() {
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const videoFormatRef = useRef({ extension: "mp4", mimeType: "video/mp4" });
+  const streamRef = useRef(null);
 
   useEffect(() => {
     const handleExportImage = async () => {
@@ -61,8 +62,24 @@ export function CanvasExporter() {
     };
 
     const handleExportVideo = async () => {
+      // If already recording, stop the recording
       if (isRecordingRef.current) {
-        return; // Already recording
+        try {
+          if (
+            mediaRecorderRef.current &&
+            mediaRecorderRef.current.state !== "inactive"
+          ) {
+            mediaRecorderRef.current.stop();
+          }
+          // Stop all tracks to release resources
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
+        } catch (error) {
+          console.error("Error stopping recording:", error);
+        }
+        return;
       }
 
       try {
@@ -76,6 +93,7 @@ export function CanvasExporter() {
 
         // Get the stream from the canvas
         const stream = canvas.captureStream(60); // 60 fps for smooth video
+        streamRef.current = stream; // Store stream reference for cleanup
 
         // Verify stream has tracks
         if (!stream || stream.getVideoTracks().length === 0) {
@@ -167,6 +185,12 @@ export function CanvasExporter() {
         };
 
         mediaRecorder.onstop = () => {
+          // Stop all tracks to release resources
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
+
           if (recordedChunksRef.current.length === 0) {
             console.error("No video data was recorded");
             isRecordingRef.current = false;
@@ -233,18 +257,6 @@ export function CanvasExporter() {
 
         // Start recording with timeslice to ensure data is captured
         mediaRecorder.start(100); // Request data every 100ms
-
-        // Stop after 5 seconds
-        setTimeout(() => {
-          if (
-            mediaRecorderRef.current &&
-            mediaRecorderRef.current.state !== "inactive"
-          ) {
-            mediaRecorderRef.current.stop();
-            // Stop all tracks to release resources
-            stream.getTracks().forEach((track) => track.stop());
-          }
-        }, 5000);
       } catch (error) {
         console.error("Error exporting video:", error);
         isRecordingRef.current = false;
@@ -274,6 +286,11 @@ export function CanvasExporter() {
         mediaRecorderRef.current.state !== "inactive"
       ) {
         mediaRecorderRef.current.stop();
+      }
+      // Stop stream tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       }
     };
   }, [gl, scene, camera]);

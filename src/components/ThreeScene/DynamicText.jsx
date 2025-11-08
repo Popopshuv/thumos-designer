@@ -2,7 +2,7 @@
 
 import { useControls } from "leva";
 import { Suspense, useState, useEffect } from "react";
-import { Html } from "@react-three/drei";
+import { Text } from "@react-three/drei";
 
 // Controller component that's always mounted to register controls
 export function TextController() {
@@ -152,64 +152,53 @@ function TextContent() {
   return (
     <group renderOrder={20}>
       {textControls.headerVisible && (
-        <Html
+        <Text
           key="header-text"
           position={[
             textControls.headerPositionX,
             textControls.headerPositionY,
             textControls.headerPositionZ,
           ]}
-          transform
-          occlude
-          style={{
-            pointerEvents: "none",
-          }}
+          font="/fonts/Sohne-Buch.ttf"
+          fontSize={textControls.headerSize}
+          color={textControls.headerColor}
+          maxWidth={textControls.headerMaxWidth}
+          lineHeight={textControls.headerLineHeight}
+          anchorX="left"
+          anchorY="middle"
+          textAlign="left"
         >
-          <h1
-            className="dynamic-text-heading"
-            style={{
-              color: textControls.headerColor,
-              fontSize: `${textControls.headerSize * 10}rem`,
-              maxWidth: `${textControls.headerMaxWidth * 100}px`,
-              lineHeight: textControls.headerLineHeight,
-              display: "block",
-            }}
-          >
-            {textControls.headerText}
-          </h1>
-        </Html>
+          {textControls.headerText}
+        </Text>
       )}
       {textControls.descriptionVisible && (
-        <Html
+        <Text
           key="description-text"
           position={[
             textControls.descriptionPositionX,
             textControls.descriptionPositionY,
             textControls.descriptionPositionZ,
           ]}
-          transform
-          occlude
-          style={{
-            pointerEvents: "none",
-          }}
+          font="/fonts/Sohne-Buch.ttf"
+          fontSize={textControls.descriptionSize * 0.75}
+          color={textControls.descriptionColor}
+          maxWidth={textControls.descriptionMaxWidth}
+          lineHeight={textControls.descriptionLineHeight}
+          anchorX="left"
+          anchorY="middle"
+          textAlign="left"
         >
-          <p
-            className="dynamic-text-description"
-            style={{
-              color: textControls.descriptionColor,
-              fontSize: `${textControls.descriptionSize * 7.5}rem`,
-              maxWidth: `${textControls.descriptionMaxWidth * 100}px`,
-              lineHeight: textControls.descriptionLineHeight,
-            }}
-          >
-            {textControls.descriptionText}
-          </p>
-        </Html>
+          {textControls.descriptionText}
+        </Text>
       )}
     </group>
   );
 }
 
 export default function DynamicText() {
-  return <TextContent />;
+  return (
+    <Suspense fallback={null}>
+      <TextContent />
+    </Suspense>
+  );
 }
