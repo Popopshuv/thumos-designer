@@ -9,10 +9,11 @@ const nextConfig = {
         tls: false,
       };
     }
-    
+
     return config;
   },
-  serverExternalPackages: ['@supabase/supabase-js'],
+  // Don't bundle Supabase - let Node.js handle it natively at runtime
+  serverExternalPackages: ["@supabase/supabase-js"],
 };
 
 export default nextConfig;

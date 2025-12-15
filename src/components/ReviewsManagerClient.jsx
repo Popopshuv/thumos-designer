@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import LogoutButton from './LogoutButton';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import LogoutButton from "./LogoutButton";
 
 export default function ReviewsManagerClient() {
   const [reviews, setReviews] = useState({ published: [], unpublished: [] });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [updating, setUpdating] = useState(new Set());
 
   useEffect(() => {
@@ -17,21 +17,32 @@ export default function ReviewsManagerClient() {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/reviews');
+      const response = await fetch("/api/reviews");
+
+      // Check if response is actually JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Non-JSON response:", text.substring(0, 200));
+        throw new Error(
+          "Server returned non-JSON response. Check server logs."
+        );
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch reviews');
+        throw new Error(data.error || "Failed to fetch reviews");
       }
 
       setReviews({
         published: data.reviews.published || [],
         unpublished: data.reviews.unpublished || [],
       });
-      setError('');
+      setError("");
     } catch (err) {
       setError(err.message);
-      console.error('Error fetching reviews:', err);
+      console.error("Error fetching reviews:", err);
     } finally {
       setLoading(false);
     }
@@ -40,13 +51,13 @@ export default function ReviewsManagerClient() {
   const togglePublish = async (reviewId, currentPublished) => {
     if (updating.has(reviewId)) return;
 
-    setUpdating(prev => new Set(prev).add(reviewId));
+    setUpdating((prev) => new Set(prev).add(reviewId));
 
     try {
       const response = await fetch(`/api/reviews/${reviewId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ published: !currentPublished }),
       });
@@ -54,16 +65,16 @@ export default function ReviewsManagerClient() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update review');
+        throw new Error(data.error || "Failed to update review");
       }
 
       // Refresh reviews after update
       await fetchReviews();
     } catch (err) {
       alert(`Error: ${err.message}`);
-      console.error('Error updating review:', err);
+      console.error("Error updating review:", err);
     } finally {
-      setUpdating(prev => {
+      setUpdating((prev) => {
         const next = new Set(prev);
         next.delete(reviewId);
         return next;
@@ -75,30 +86,34 @@ export default function ReviewsManagerClient() {
     if (updating.has(reviewId)) return;
 
     // Confirm deletion
-    if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this review? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
-    setUpdating(prev => new Set(prev).add(reviewId));
+    setUpdating((prev) => new Set(prev).add(reviewId));
 
     try {
       const response = await fetch(`/api/reviews/${reviewId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete review');
+        throw new Error(data.error || "Failed to delete review");
       }
 
       // Refresh reviews after deletion
       await fetchReviews();
     } catch (err) {
       alert(`Error: ${err.message}`);
-      console.error('Error deleting review:', err);
+      console.error("Error deleting review:", err);
     } finally {
-      setUpdating(prev => {
+      setUpdating((prev) => {
         const next = new Set(prev);
         next.delete(reviewId);
         return next;
@@ -107,12 +122,12 @@ export default function ReviewsManagerClient() {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -126,18 +141,18 @@ export default function ReviewsManagerClient() {
           <div className="flex-1">
             <h3 className="text-xl font-semibold mb-2">{review.title}</h3>
             <p className="text-gray-400 mb-3">{review.description}</p>
-            
+
             <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
               <span className="flex items-center gap-1">
                 <span className="text-yellow-400">★</span>
                 {review.rating}/5
               </span>
               <span>{formatDate(review.created_at)}</span>
-              {review.customer?.name && (
-                <span>By {review.customer.name}</span>
-              )}
+              {review.customer?.name && <span>By {review.customer.name}</span>}
               {review.productHandle && (
-                <span className="text-gray-600">Product: {review.productHandle}</span>
+                <span className="text-gray-600">
+                  Product: {review.productHandle}
+                </span>
               )}
             </div>
 
@@ -162,22 +177,22 @@ export default function ReviewsManagerClient() {
             disabled={isUpdating}
             className={`px-4 py-2 rounded font-medium transition-colors ${
               review.published
-                ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                : 'bg-green-600 hover:bg-green-700 text-white'
+                ? "bg-yellow-600 hover:bg-yellow-700 text-white"
+                : "bg-green-600 hover:bg-green-700 text-white"
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isUpdating
-              ? 'Updating...'
+              ? "Updating..."
               : review.published
-              ? 'Unpublish'
-              : 'Publish'}
+              ? "Unpublish"
+              : "Publish"}
           </button>
           <button
             onClick={() => deleteReview(review.id)}
             disabled={isUpdating}
             className="px-4 py-2 rounded font-medium transition-colors bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isUpdating ? 'Deleting...' : 'Delete'}
+            {isUpdating ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
@@ -212,14 +227,18 @@ export default function ReviewsManagerClient() {
     <div className="max-w-6xl mx-auto p-8">
       <div className="mb-8">
         <div className="flex justify-between items-start mb-4">
-          <Link href="/" className="text-gray-400 hover:text-white inline-block">
+          <Link
+            href="/"
+            className="text-gray-400 hover:text-white inline-block"
+          >
             ← Back to Home
           </Link>
           <LogoutButton />
         </div>
         <h1 className="text-4xl font-bold mb-2">Reviews Manager</h1>
         <p className="text-gray-400">
-          {reviews.unpublished.length} unpublished • {reviews.published.length} published
+          {reviews.unpublished.length} unpublished • {reviews.published.length}{" "}
+          published
         </p>
       </div>
 
@@ -253,4 +272,3 @@ export default function ReviewsManagerClient() {
     </div>
   );
 }
-
