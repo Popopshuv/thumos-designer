@@ -29,7 +29,7 @@ export async function GET() {
     // Use service role key for admin access
     let supabase;
     try {
-      supabase = await getSupabaseClient(true);
+      supabase = getSupabaseClient(true);
     } catch (clientError) {
       console.error("Failed to create Supabase client:", clientError);
       return NextResponse.json(
