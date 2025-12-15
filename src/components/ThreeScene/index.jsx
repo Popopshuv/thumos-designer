@@ -55,9 +55,9 @@ function CanvasAspectRatioController() {
 function EnvironmentController() {
   const controls = useControls("Environment Settings", {
     environmentIntensity: {
-      value: 0.4,
+      value: 1.4,
       min: 0,
-      max: 2,
+      max: 5,
       step: 0.1,
       label: "Intensity",
     },

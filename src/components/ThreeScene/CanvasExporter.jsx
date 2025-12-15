@@ -11,6 +11,7 @@ export function CanvasExporter() {
   const recordedChunksRef = useRef([]);
   const videoFormatRef = useRef({ extension: "mp4", mimeType: "video/mp4" });
   const streamRef = useRef(null);
+  const dataRequestIntervalRef = useRef(null);
 
   useEffect(() => {
     const handleExportImage = async () => {
@@ -65,10 +66,20 @@ export function CanvasExporter() {
       // If already recording, stop the recording
       if (isRecordingRef.current) {
         try {
+          // Clear the data request interval
+          if (dataRequestIntervalRef.current) {
+            clearInterval(dataRequestIntervalRef.current);
+            dataRequestIntervalRef.current = null;
+          }
+
           if (
             mediaRecorderRef.current &&
             mediaRecorderRef.current.state !== "inactive"
           ) {
+            // Request final data before stopping
+            if (mediaRecorderRef.current.state === "recording") {
+              mediaRecorderRef.current.requestData();
+            }
             mediaRecorderRef.current.stop();
           }
           // Stop all tracks to release resources
@@ -181,10 +192,19 @@ export function CanvasExporter() {
         mediaRecorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
             recordedChunksRef.current.push(event.data);
+            console.log(
+              `Received data chunk: ${event.data.size} bytes, total chunks: ${recordedChunksRef.current.length}`
+            );
           }
         };
 
         mediaRecorder.onstop = () => {
+          // Clear the data request interval
+          if (dataRequestIntervalRef.current) {
+            clearInterval(dataRequestIntervalRef.current);
+            dataRequestIntervalRef.current = null;
+          }
+
           // Stop all tracks to release resources
           if (streamRef.current) {
             streamRef.current.getTracks().forEach((track) => track.stop());
@@ -202,9 +222,22 @@ export function CanvasExporter() {
             return;
           }
 
+          console.log(
+            `Recording stopped. Total chunks: ${
+              recordedChunksRef.current.length
+            }, total size: ${recordedChunksRef.current.reduce(
+              (sum, chunk) => sum + chunk.size,
+              0
+            )} bytes`
+          );
+
           const blob = new Blob(recordedChunksRef.current, {
             type: videoFormatRef.current.mimeType,
           });
+
+          console.log(
+            `Final blob size: ${blob.size} bytes, type: ${videoFormatRef.current.mimeType}`
+          );
 
           if (blob.size === 0) {
             console.error("Recorded blob is empty");
@@ -255,8 +288,25 @@ export function CanvasExporter() {
           })
         );
 
-        // Start recording with timeslice to ensure data is captured
-        mediaRecorder.start(100); // Request data every 100ms
+        // Start recording - use timeslice of 1000ms (1 second) to ensure regular data chunks
+        // Some browsers need a timeslice to work properly
+        mediaRecorder.start(1000);
+
+        // Also periodically request data to ensure we capture everything
+        // This helps with browsers that might not emit data automatically
+        dataRequestIntervalRef.current = setInterval(() => {
+          if (
+            mediaRecorderRef.current &&
+            mediaRecorderRef.current.state === "recording"
+          ) {
+            try {
+              mediaRecorderRef.current.requestData();
+            } catch (error) {
+              // Ignore errors if recorder is stopping
+              console.warn("Could not request data:", error);
+            }
+          }
+        }, 500); // Request data every 500ms
       } catch (error) {
         console.error("Error exporting video:", error);
         isRecordingRef.current = false;
@@ -281,6 +331,10 @@ export function CanvasExporter() {
       window.removeEventListener("exportCanvasVideo", handleVideoExport);
 
       // Cleanup recording if component unmounts
+      if (dataRequestIntervalRef.current) {
+        clearInterval(dataRequestIntervalRef.current);
+        dataRequestIntervalRef.current = null;
+      }
       if (
         mediaRecorderRef.current &&
         mediaRecorderRef.current.state !== "inactive"
